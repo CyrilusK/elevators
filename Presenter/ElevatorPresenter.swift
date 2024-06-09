@@ -7,8 +7,15 @@
 
 import Foundation
 
-class ElevatorPresenter {
+protocol ElevatorPresenterProtocol {
+    func loadConfig()
+    func requestLift(toFloor floor: Int)
+}
+
+class ElevatorPresenter: ElevatorPresenterProtocol {
+    
     weak var view: ElevatorViewController?
+    var elevatorManager: ElevatorManager?
     
     init(view: ElevatorViewController) {
         self.view = view
@@ -16,14 +23,26 @@ class ElevatorPresenter {
     
     func loadConfig() {
         JSONLoader.loadConfig(from: "https://demo0015790.mockable.io/") { [weak self] config in
-            guard let config = config else { return }
+            guard let config = config else {
+                DispatchQueue.main.async {
+                    self?.view?.showError(message: "Failed to load config")
+                }
+                return
+            }
             DispatchQueue.main.async {
+                self?.elevatorManager = ElevatorManager(config: config)
+                self?.elevatorManager?.delegate = self
                 self?.view?.showElevators(config: config)
             }
         }
     }
     
-    func callElevator(to floor: Int) {
-        // Логика вызова лифта
+    func requestLift(toFloor floor: Int) {
+        guard let elevatorManager = elevatorManager else { return }
+        elevatorManager.requestLift(toFloor: floor)
+    }
+    
+    func liftDidArrive(id: Int, floor: Int) {
+        view?.updateElevatorPosition(id: id, floor: floor)
     }
 }

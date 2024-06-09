@@ -7,26 +7,43 @@
 
 import UIKit
 
-class ElevatorViewController: UIViewController {
+protocol ElevatorView: AnyObject {
+    func updateElevatorPosition(id: Int, floor: Int)
+    func showError(message: String)
+    func showElevators(config: BuildingConfig)
+}
 
+class ElevatorViewController: UIViewController, ElevatorView {
+    private var buildingConfig: BuildingConfig?
     private var presenter: ElevatorPresenter!
-    private var buildingConfig: BuildingConfig!
-    
     // Словарь для хранения связей между кнопкой вызова и лифтами
     var buttonPairs: [Int: (callButton: UIButton, elevatorButtons: [UIButton])] = [:]
+    
+    func updateElevatorPosition(id: Int, floor: Int) {
+        print("Elevator \(id) arrived at floor \(floor)")
+        self.animateElevator(id: id, at: floor)
+    }
+    
+    func showError(message: String) {
+        let alert = UIAlertController(title: "Error", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+        present(alert, animated: true, completion: nil)
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
         presenter = ElevatorPresenter(view: self)
         presenter.loadConfig()
     }
-
+    
     func showElevators(config: BuildingConfig) {
         self.buildingConfig = config
         setupUI()
     }
     
     func setupUI() {
+        guard let buildingConfig = buildingConfig else { return }
+        
         view.backgroundColor = .systemBackground
         let mainStack = UIStackView()
         mainStack.axis = .vertical
@@ -40,33 +57,33 @@ class ElevatorViewController: UIViewController {
             floorsStack.alignment = .fill
             floorsStack.distribution = .fillEqually
             floorsStack.spacing = 10
-            
+
             var elevatorButtons: [UIButton] = []
-            
+
             let buttonForCall = UIButton(type: .system)
             let btnImage = UIImage(systemName: "chevron.up.chevron.down")
             buttonForCall.setImage(btnImage, for: .normal)
             buttonForCall.imageView?.contentMode = .scaleAspectFit
             buttonForCall.tag = floor
-            buttonForCall.addTarget(self, action: #selector(callElevator), for: .touchUpInside)
+            buttonForCall.addTarget(self, action: #selector(callFromBtn), for: .touchUpInside)
             floorsStack.addArrangedSubview(buttonForCall)
-            
-            for _ in 1...buildingConfig.lifts.count {
+
+            for lift in buildingConfig.lifts {
                 let elevators = UIButton(type: .system)
                 elevators.backgroundColor = .orange
-                elevators.tag = floor
+                elevators.tag = lift.id
                 elevators.setTitle("\(floor)", for: .normal)
                 elevators.addTarget(self, action: #selector(callElevator), for: .touchUpInside)
                 floorsStack.addArrangedSubview(elevators)
                 elevatorButtons.append(elevators)
             }
             buttonPairs[floor] = (callButton: buttonForCall, elevatorButtons: elevatorButtons)
-            
+
             mainStack.addArrangedSubview(floorsStack)
         }
         view.addSubview(mainStack)
         mainStack.translatesAutoresizingMaskIntoConstraints = false
-        
+
         NSLayoutConstraint.activate([
             mainStack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
             mainStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
@@ -76,28 +93,37 @@ class ElevatorViewController: UIViewController {
     }
     
     @objc func callElevator(_ sender: UIButton) {
-        let floor = sender.tag
-        presenter.callElevator(to: floor)
-        
-        for i in stride(from: 1, through: floor, by: 1) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + self.buildingConfig.timeToElevate * Double(i - 1)) {
-                if floor == i {
-                    self.animateElevator(at: i)
-                }
-            }
-        }
+        guard let floor = Int(sender.currentTitle ?? "") else { return }
+        presenter.requestLift(toFloor: floor)
     }
     
-    func animateElevator(at floor: Int) {
+    @objc func callFromBtn(_ sender: UIButton) {
+        let floor = Int(sender.tag)
+        presenter.requestLift(toFloor: floor)
+    }
+    
+    func animateElevator(id lift: Int, at floor: Int) {
+        guard let buildingConfig = buildingConfig else { return }
+        
         if let buttonPair = buttonPairs[floor] {
             let elevatorButtons = buttonPair.elevatorButtons
-            for elevatorButton in elevatorButtons {
-                UIView.animate(withDuration: self.buildingConfig.timeOpenCloseDoor) {
-                    elevatorButton.backgroundColor = .lightGray
+            for elevatorButton in elevatorButtons where (lift == elevatorButton.tag) {
+                // Открытие дверей
+                UIView.animate(withDuration: TimeInterval(buildingConfig.timeOpenCloseDoor), animations: {
+                    elevatorButton.backgroundColor = .white
+                    elevatorButton.setTitle("Opening", for: .normal)
+                }) { _ in
                     elevatorButton.setTitle("Open", for: .normal)
-                    UIView.animate(withDuration: self.buildingConfig.timeOpenCloseDoor, delay: self.buildingConfig.timeOpenCloseDoor) {
-                        elevatorButton.backgroundColor = .orange
-                        elevatorButton.setTitle("\(floor)", for: .normal)
+                    // Пауза с открытыми дверями
+                    DispatchQueue.main.asyncAfter(deadline: .now() + Double(buildingConfig.timeOpenCloseDoor)) {
+                        // Закрытие дверей
+                        UIView.animate(withDuration: TimeInterval(buildingConfig.timeOpenCloseDoor), animations: {
+                            elevatorButton.backgroundColor = .orange
+                            elevatorButton.setTitle("Closing", for: .normal)
+                        }) { _ in
+                            // Завершение закрытия дверей
+                            elevatorButton.setTitle("\(floor)", for: .normal)
+                        }
                     }
                 }
             }

@@ -2,20 +2,23 @@
 //  Elevator.swift
 //  Elevators
 //
-//  Created by Cyril Kardash on 03.06.2024.
+//  Created by Cyril Kardash on 08.06.2024.
 //
 
 import Foundation
 
-struct Elevator: Codable {
+class Elevator {
     let id: Int
     let company: String
     let maxWeight: Int
-}
-
-struct BuildingConfig: Codable {
-    let timeToElevate: Double
-    let timeOpenCloseDoor: Double
-    let houseLevels: Int
-    let lifts: [Elevator]
+    var currentFloor: Int
+    var isMoving: Bool
+    
+    init(config: ElevatorConfig) {
+        self.id = config.id
+        self.company = config.company
+        self.maxWeight = config.maxWeight
+        self.currentFloor = 1
+        self.isMoving = false
+    }
 }

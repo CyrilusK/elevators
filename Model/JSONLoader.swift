@@ -24,6 +24,7 @@ class JSONLoader {
                 let config = try JSONDecoder().decode(BuildingConfig.self, from: data)
                 completion(config)
             } catch {
+                print("JSON decoding error: \(error)")
                 completion(nil)
             }
         }.resume()

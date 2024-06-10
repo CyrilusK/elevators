@@ -7,7 +7,7 @@
 
 import Foundation
 
-class Elevator {
+struct Elevator {
     let id: Int
     let company: String
     let maxWeight: Int

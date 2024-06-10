@@ -29,6 +29,14 @@ class ElevatorPresenter: ElevatorPresenterProtocol {
                 }
                 return
             }
+            
+            if config.houseLevels > 20 || config.lifts.count > 4 || config.lifts.count < 2 {
+                DispatchQueue.main.async {
+                    self?.view?.showError(message: "Number of floors or elevators exceeds the allowed limit")
+                }
+                return
+            }
+            
             DispatchQueue.main.async {
                 self?.elevatorManager = ElevatorManager(config: config)
                 self?.elevatorManager?.delegate = self

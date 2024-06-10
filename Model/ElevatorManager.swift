@@ -18,8 +18,7 @@ class ElevatorManager {
     }
     
     func requestLift(toFloor floor: Int) {
-        print(floor)
-        guard floor > 0 && floor < config.houseLevels + 1 else {
+        guard floor > 0 && floor <= config.houseLevels else {
             delegate?.view?.showError(message: "Invalid floor request")
             return
         }
@@ -54,7 +53,6 @@ class ElevatorManager {
             DispatchQueue.main.async {
                 self.lifts[liftIndex].currentFloor = floor
                 self.lifts[liftIndex].isMoving = false
-                //print("Lift \(lift.id) has arrived at floor \(floor)")
                 self.delegate?.liftDidArrive(id: lift.id, floor: floor)
             }
         }

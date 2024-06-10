@@ -16,6 +16,7 @@ protocol ElevatorView: AnyObject {
 class ElevatorViewController: UIViewController, ElevatorView {
     private var buildingConfig: BuildingConfig?
     private var presenter: ElevatorPresenter!
+    
     // Словарь для хранения связей между кнопкой вызова и лифтами
     var buttonPairs: [Int: (callButton: UIButton, elevatorButtons: [UIButton])] = [:]
     
@@ -65,6 +66,7 @@ class ElevatorViewController: UIViewController, ElevatorView {
             buttonForCall.setImage(btnImage, for: .normal)
             buttonForCall.imageView?.contentMode = .scaleAspectFit
             buttonForCall.tag = floor
+            buttonForCall.tintColor = .blue
             buttonForCall.addTarget(self, action: #selector(callFromBtn), for: .touchUpInside)
             floorsStack.addArrangedSubview(buttonForCall)
 
@@ -109,20 +111,22 @@ class ElevatorViewController: UIViewController, ElevatorView {
             let elevatorButtons = buttonPair.elevatorButtons
             for elevatorButton in elevatorButtons where (lift == elevatorButton.tag) {
                 // Открытие дверей
-                UIView.animate(withDuration: TimeInterval(buildingConfig.timeOpenCloseDoor), animations: {
-                    elevatorButton.backgroundColor = .white
-                    elevatorButton.setTitle("Opening", for: .normal)
-                }) { _ in
-                    elevatorButton.setTitle("Open", for: .normal)
-                    // Пауза с открытыми дверями
-                    DispatchQueue.main.asyncAfter(deadline: .now() + Double(buildingConfig.timeOpenCloseDoor)) {
-                        // Закрытие дверей
-                        UIView.animate(withDuration: TimeInterval(buildingConfig.timeOpenCloseDoor), animations: {
-                            elevatorButton.backgroundColor = .orange
-                            elevatorButton.setTitle("Closing", for: .normal)
-                        }) { _ in
-                            // Завершение закрытия дверей
-                            elevatorButton.setTitle("\(floor)", for: .normal)
+                DispatchQueue.main.async {
+                    UIView.animate(withDuration: TimeInterval(buildingConfig.timeOpenCloseDoor), animations: {
+                        elevatorButton.backgroundColor = .white
+                        elevatorButton.setTitle("Opening", for: .normal)
+                    }) { _ in
+                        elevatorButton.setTitle("Open", for: .normal)
+                        // Пауза с открытыми дверями
+                        DispatchQueue.main.asyncAfter(deadline: .now() + Double(buildingConfig.timeOpenCloseDoor)) {
+                            // Закрытие дверей
+                            UIView.animate(withDuration: TimeInterval(buildingConfig.timeOpenCloseDoor), animations: {
+                                elevatorButton.backgroundColor = .orange
+                                elevatorButton.setTitle("Closing", for: .normal)
+                            }) { _ in
+                                // Завершение закрытия дверей
+                                elevatorButton.setTitle("\(floor)", for: .normal)
+                            }
                         }
                     }
                 }

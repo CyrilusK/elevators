@@ -14,8 +14,8 @@ struct ElevatorConfig: Codable {
 }
 
 struct BuildingConfig: Codable {
-    let timeToElevate: Int
-    let timeOpenCloseDoor: Int
+    let timeToElevate: Double
+    let timeOpenCloseDoor: Double
     let houseLevels: Int
     let lifts: [ElevatorConfig]
 }

@@ -46,7 +46,7 @@ class ElevatorManager {
         lifts[liftIndex].isMoving = true
         
         let floorsToMove = abs(lifts[liftIndex].currentFloor - floor)
-        let travelTime = floorsToMove * config.timeToElevate
+        let travelTime = Double(floorsToMove) * config.timeToElevate
         
         self.delegate?.liftWillArrive(lift: lift, floor: floor)
         print("Lift \(lift.id) is moving from floor \(lifts[liftIndex].currentFloor) to floor \(floor)")

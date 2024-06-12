@@ -20,27 +20,33 @@ class ElevatorViewController: UIViewController, ElevatorView {
     private let imageUp = UIImageView(image: UIImage(systemName: "arrow.up"))
     let imageDown = UIImageView(image: UIImage(systemName: "arrow.down"))
     
-    // Словарь для хранения связей между кнопкой вызова и лифтами
-    var buttonPairs: [Int: (callButton: UIButton, elevatorButtons: [UIButton])] = [:]
+    var buttonForLifts: [Int: UIButton] = [:]
     var buttonPressed: [UIButton: Bool] = [:]
-    var elevatorAnimating: Bool = false
+    var elevators: [Int: [UILabel]] = [:]
+    let mainStack = UIStackView()
     
     func updateElevatorPosition(lift: Elevator, floor: Int) {
         print("Elevator \(lift.id) arrived at floor \(floor)")
-        self.animateElevator(lift: lift, at: floor)
-        
-        if let buttonPair = buttonPairs[floor] {
-            buttonPressed[buttonPair.callButton] = false
+        self.openCloseElevator(lift: lift, at: floor)
+        if let callButton = buttonForLifts[floor] {
+            buttonPressed[callButton] = false
+            //callButton.isEnabled = true
         }
+        print(#function)
     }
     
     func willUpdateElevatorPosition(lift: Elevator, floor: Int) {
+        if let callButton = buttonForLifts[floor] {
+            callButton.isEnabled = false
+        }
+        self.animateElevator(lift: lift, toFloor: floor)
         if (lift.currentFloor - floor < 0) {
             imageUp.tintColor = .green
         }
         else {
             imageDown.tintColor = .green
         }
+        print(#function)
     }
     
     func showError(message: String) {
@@ -53,18 +59,19 @@ class ElevatorViewController: UIViewController, ElevatorView {
         super.viewDidLoad()
         presenter = ElevatorPresenter(view: self)
         presenter.loadConfig()
+        print(#function)
     }
     
     func showElevators(config: BuildingConfig) {
         self.buildingConfig = config
         setupUI()
+        print(#function)
     }
     
     func setupUI() {
         guard let buildingConfig = buildingConfig else { return }
         
         view.backgroundColor = .systemBackground
-        let mainStack = UIStackView()
         mainStack.axis = .vertical
         mainStack.alignment = .fill
         mainStack.distribution = .fillEqually
@@ -97,32 +104,31 @@ class ElevatorViewController: UIViewController, ElevatorView {
             floorsStack.distribution = .fillEqually
             floorsStack.spacing = 10
 
-            var elevatorButtons: [UIButton] = []
-
-            let buttonForCall = UIButton(type: .system)
+            let callButton = UIButton(type: .system)
             let btnImage = UIImage(systemName: "record.circle")
-            buttonForCall.setImage(btnImage, for: .normal)
-            buttonForCall.imageView?.contentMode = .scaleAspectFit
-            buttonForCall.tag = floor
-            buttonForCall.tintColor = .blue
-            buttonForCall.addTarget(self, action: #selector(callFromBtn), for: .touchUpInside)
-            floorsStack.addArrangedSubview(buttonForCall)
+            callButton.setImage(btnImage, for: .normal)
+            callButton.imageView?.contentMode = .scaleAspectFit
+            callButton.tag = floor
+            callButton.tintColor = .blue
+            callButton.addTarget(self, action: #selector(callFromBtn), for: .touchUpInside)
+            floorsStack.addArrangedSubview(callButton)
             
-            buttonPressed[buttonForCall] = false
+            buttonPressed[callButton] = false
+            buttonForLifts[floor] = callButton
+            
+            var floorElevatorImages: [UILabel] = []
 
             for lift in buildingConfig.lifts {
-                let elevators = UIButton(type: .system)
-                elevators.backgroundColor = .orange
-                elevators.tag = lift.id
-                elevators.setTitle("\(floor)", for: .normal)
-                elevators.addTarget(self, action: #selector(callElevator), for: .touchUpInside)
-                floorsStack.addArrangedSubview(elevators)
-                elevatorButtons.append(elevators)
+                let elevator = UILabel()
+                elevator.backgroundColor = .orange
+                elevator.text = String(floor)
+                elevator.textAlignment = .center
+                elevator.tag = lift.id
+                floorsStack.addArrangedSubview(elevator)
+                floorElevatorImages.append(elevator)
                 
-                buttonPressed[elevators] = false
             }
-            buttonPairs[floor] = (callButton: buttonForCall, elevatorButtons: elevatorButtons)
-
+            elevators[floor] = floorElevatorImages
             mainStack.addArrangedSubview(floorsStack)
         }
         
@@ -135,60 +141,84 @@ class ElevatorViewController: UIViewController, ElevatorView {
             mainStack.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -10),
             mainStack.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -10)
         ])
-    }
-    
-    @objc func callElevator(_ sender: UIButton) {
-        guard let floor = Int(sender.currentTitle ?? "") else { return }
-        if (!buttonPressed[sender]! && !elevatorAnimating) {
-            presenter.requestLift(toFloor: floor)
-            buttonPressed[sender] = true
-            sender.isEnabled = false
-        }
+        
+        mainStack.layoutIfNeeded()
     }
     
     @objc func callFromBtn(_ sender: UIButton) {
         let floor = Int(sender.tag)
-        if (!buttonPressed[sender]! && !elevatorAnimating) {
+        if (!buttonPressed[sender]!) {
             presenter.requestLift(toFloor: floor)
             buttonPressed[sender] = true
-            sender.isEnabled = false
         }
+        print(#function)
     }
     
-    func animateElevator(lift elevator: Elevator, at floor: Int) {
+    func openCloseElevator(lift elevator: Elevator, at floor: Int) {
         guard let buildingConfig = buildingConfig else { return }
         
-        if let buttonPair = buttonPairs[floor] {
-            let elevatorButtons = buttonPair.elevatorButtons
-            for elevatorButton in elevatorButtons where (elevator.id == elevatorButton.tag) {
-                elevatorAnimating = true
+        if let floorElevators = elevators[floor] {
+            for floorElevator in floorElevators where (elevator.id == floorElevator.tag) {
                 // Открытие дверей
-                elevatorButton.isEnabled = false
-                    UIView.animate(withDuration: TimeInterval(buildingConfig.timeOpenCloseDoor), animations: {
-                        elevatorButton.backgroundColor = .white
-                        elevatorButton.setTitle("Opening", for: .normal)
-                    }) { _ in
-                        elevatorButton.setTitle("Open", for: .normal)
-                        // Пауза с открытыми дверями
-                        DispatchQueue.main.asyncAfter(deadline: .now() + Double(buildingConfig.timeOpenCloseDoor)) {
-                            // Закрытие дверей
-                            UIView.animate(withDuration: TimeInterval(buildingConfig.timeOpenCloseDoor), animations: {
-                                elevatorButton.backgroundColor = .orange
-                                elevatorButton.setTitle("Closing", for: .normal)
-                            }) { _ in
-                                // Завершение закрытия дверей
-                                elevatorButton.setTitle("\(floor)", for: .normal)
-                                elevatorButton.isEnabled = true
-                                self.elevatorAnimating = false
+                UIView.transition(with: floorElevator, duration: TimeInterval(buildingConfig.timeOpenCloseDoor), options: .transitionCrossDissolve, animations: {
+                    floorElevator.backgroundColor = .white
+                    floorElevator.text = "Opening"
+                }, completion: { _ in
+                    floorElevator.text = "Open"
+                    // Пауза с открытыми дверями
+                    DispatchQueue.main.asyncAfter(deadline: .now() + buildingConfig.timeOpenCloseDoor)  {
+                        // Закрытие дверей
+                        UIView.transition(with: floorElevator, duration: TimeInterval(buildingConfig.timeOpenCloseDoor), options: .transitionCrossDissolve, animations: {
+                            floorElevator.backgroundColor = .orange
+                            floorElevator.text = "Closing"
+                        }, completion: { _ in
+                            // Завершение закрытия дверей
+                            floorElevator.text = String(floor)
+                        })
+                        DispatchQueue.main.asyncAfter(deadline: .now() + buildingConfig.timeOpenCloseDoor)  {
+                            if let callButton = self.buttonForLifts[floor] {
+                                callButton.isEnabled = true
                             }
                         }
                     }
+                })
             }
-            buttonPair.callButton.isEnabled = true
             if (!elevator.isMoving) {
                 imageUp.tintColor = .blue
                 imageDown.tintColor = .blue
             }
         }
+        print(#function)
     }
+    
+    func animateElevator(lift elevator: Elevator, toFloor: Int) {
+        guard let buildingConfig = buildingConfig else { return }
+        
+        if let floorElevators = elevators[elevator.currentFloor], let elevatorLabel = floorElevators.first(where: { $0.tag == elevator.id }) {
+            
+            let floorHeight = elevatorLabel.bounds.height + 10
+            let fromFloor = elevator.currentFloor
+            let deltaY = CGFloat(Double(floorHeight) * Double(abs(toFloor - fromFloor)))
+            let temporaryElevatorLabel = UILabel(frame: elevatorLabel.frame)
+            
+            temporaryElevatorLabel.frame.origin.x += 10
+            temporaryElevatorLabel.frame.origin.y = mainStack.bounds.height + view.safeAreaInsets.top + imageUp.frame.height + 32 - CGFloat(fromFloor) * (floorHeight)
+            print(deltaY)
+            temporaryElevatorLabel.backgroundColor = UIColor.gray.withAlphaComponent(0.5)
+            view.addSubview(temporaryElevatorLabel)
+                    
+            UIView.animate(withDuration: TimeInterval(buildingConfig.timeToElevate * Double(abs(elevator.currentFloor - toFloor)) + 0.65), animations: {
+                if fromFloor > toFloor {
+                    temporaryElevatorLabel.frame.origin.y += deltaY
+                } else {
+                    temporaryElevatorLabel.frame.origin.y -= deltaY
+                }
+            }) { _ in
+                print(temporaryElevatorLabel.frame)
+                temporaryElevatorLabel.removeFromSuperview()
+            }
+        }
+        print(#function)
+    }
+
 }

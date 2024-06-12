@@ -8,7 +8,7 @@
 import UIKit
 
 protocol ElevatorView: AnyObject {
-    func updateElevatorPosition(id: Int, floor: Int)
+    func updateElevatorPosition(lift: Elevator, floor: Int)
     func showError(message: String)
     func showElevators(config: BuildingConfig)
 }
@@ -17,12 +17,30 @@ class ElevatorViewController: UIViewController, ElevatorView {
     private var buildingConfig: BuildingConfig?
     private var presenter: ElevatorPresenter!
     
+    private let imageUp = UIImageView(image: UIImage(systemName: "arrow.up"))
+    let imageDown = UIImageView(image: UIImage(systemName: "arrow.down"))
+    
     // Словарь для хранения связей между кнопкой вызова и лифтами
     var buttonPairs: [Int: (callButton: UIButton, elevatorButtons: [UIButton])] = [:]
+    var buttonPressed: [UIButton: Bool] = [:]
+    var elevatorAnimating: Bool = false
     
-    func updateElevatorPosition(id: Int, floor: Int) {
-        print("Elevator \(id) arrived at floor \(floor)")
-        self.animateElevator(id: id, at: floor)
+    func updateElevatorPosition(lift: Elevator, floor: Int) {
+        print("Elevator \(lift.id) arrived at floor \(floor)")
+        self.animateElevator(lift: lift, at: floor)
+        
+        if let buttonPair = buttonPairs[floor] {
+            buttonPressed[buttonPair.callButton] = false
+        }
+    }
+    
+    func willUpdateElevatorPosition(lift: Elevator, floor: Int) {
+        if (lift.currentFloor - floor < 0) {
+            imageUp.tintColor = .green
+        }
+        else {
+            imageDown.tintColor = .green
+        }
     }
     
     func showError(message: String) {
@@ -51,7 +69,27 @@ class ElevatorViewController: UIViewController, ElevatorView {
         mainStack.alignment = .fill
         mainStack.distribution = .fillEqually
         mainStack.spacing = 10
-
+        
+        imageUp.tintColor = .blue
+        imageUp.contentMode = .scaleAspectFit
+        view.addSubview(imageUp)
+        
+        imageDown.tintColor = .blue
+        imageDown.contentMode = .scaleAspectFit
+        view.addSubview(imageDown)
+        
+        imageUp.translatesAutoresizingMaskIntoConstraints = false
+        imageDown.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
+            imageUp.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            imageDown.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            imageUp.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            imageDown.leadingAnchor.constraint(equalTo: imageUp.trailingAnchor),
+            imageUp.heightAnchor.constraint(equalToConstant: 50),
+            imageDown.heightAnchor.constraint(equalToConstant: 50)
+        ])
+        
         for floor in (1...buildingConfig.houseLevels).reversed() {
             let floorsStack = UIStackView()
             floorsStack.axis = .horizontal
@@ -62,13 +100,15 @@ class ElevatorViewController: UIViewController, ElevatorView {
             var elevatorButtons: [UIButton] = []
 
             let buttonForCall = UIButton(type: .system)
-            let btnImage = UIImage(systemName: "chevron.up.chevron.down")
+            let btnImage = UIImage(systemName: "record.circle")
             buttonForCall.setImage(btnImage, for: .normal)
             buttonForCall.imageView?.contentMode = .scaleAspectFit
             buttonForCall.tag = floor
             buttonForCall.tintColor = .blue
             buttonForCall.addTarget(self, action: #selector(callFromBtn), for: .touchUpInside)
             floorsStack.addArrangedSubview(buttonForCall)
+            
+            buttonPressed[buttonForCall] = false
 
             for lift in buildingConfig.lifts {
                 let elevators = UIButton(type: .system)
@@ -78,40 +118,52 @@ class ElevatorViewController: UIViewController, ElevatorView {
                 elevators.addTarget(self, action: #selector(callElevator), for: .touchUpInside)
                 floorsStack.addArrangedSubview(elevators)
                 elevatorButtons.append(elevators)
+                
+                buttonPressed[elevators] = false
             }
             buttonPairs[floor] = (callButton: buttonForCall, elevatorButtons: elevatorButtons)
 
             mainStack.addArrangedSubview(floorsStack)
         }
+        
         view.addSubview(mainStack)
         mainStack.translatesAutoresizingMaskIntoConstraints = false
 
         NSLayoutConstraint.activate([
-            mainStack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-            mainStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
-            mainStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
-            mainStack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -10)
+            mainStack.topAnchor.constraint(equalTo: imageUp.bottomAnchor, constant: 10),
+            mainStack.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 10),
+            mainStack.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -10),
+            mainStack.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -10)
         ])
     }
     
     @objc func callElevator(_ sender: UIButton) {
         guard let floor = Int(sender.currentTitle ?? "") else { return }
-        presenter.requestLift(toFloor: floor)
+        if (!buttonPressed[sender]! && !elevatorAnimating) {
+            presenter.requestLift(toFloor: floor)
+            buttonPressed[sender] = true
+            sender.isEnabled = false
+        }
     }
     
     @objc func callFromBtn(_ sender: UIButton) {
         let floor = Int(sender.tag)
-        presenter.requestLift(toFloor: floor)
+        if (!buttonPressed[sender]! && !elevatorAnimating) {
+            presenter.requestLift(toFloor: floor)
+            buttonPressed[sender] = true
+            sender.isEnabled = false
+        }
     }
     
-    func animateElevator(id lift: Int, at floor: Int) {
+    func animateElevator(lift elevator: Elevator, at floor: Int) {
         guard let buildingConfig = buildingConfig else { return }
         
         if let buttonPair = buttonPairs[floor] {
             let elevatorButtons = buttonPair.elevatorButtons
-            for elevatorButton in elevatorButtons where (lift == elevatorButton.tag) {
+            for elevatorButton in elevatorButtons where (elevator.id == elevatorButton.tag) {
+                elevatorAnimating = true
                 // Открытие дверей
-                DispatchQueue.main.async {
+                elevatorButton.isEnabled = false
                     UIView.animate(withDuration: TimeInterval(buildingConfig.timeOpenCloseDoor), animations: {
                         elevatorButton.backgroundColor = .white
                         elevatorButton.setTitle("Opening", for: .normal)
@@ -126,10 +178,16 @@ class ElevatorViewController: UIViewController, ElevatorView {
                             }) { _ in
                                 // Завершение закрытия дверей
                                 elevatorButton.setTitle("\(floor)", for: .normal)
+                                elevatorButton.isEnabled = true
+                                self.elevatorAnimating = false
                             }
                         }
                     }
-                }
+            }
+            buttonPair.callButton.isEnabled = true
+            if (!elevator.isMoving) {
+                imageUp.tintColor = .blue
+                imageDown.tintColor = .blue
             }
         }
     }

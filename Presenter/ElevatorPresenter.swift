@@ -50,7 +50,11 @@ class ElevatorPresenter: ElevatorPresenterProtocol {
         elevatorManager.requestLift(toFloor: floor)
     }
     
-    func liftDidArrive(id: Int, floor: Int) {
-        view?.updateElevatorPosition(id: id, floor: floor)
+    func liftDidArrive(lift: Elevator, floor: Int) {
+        view?.updateElevatorPosition(lift: lift, floor: floor)
+    }
+    
+    func liftWillArrive(lift: Elevator, floor: Int) {
+        view?.willUpdateElevatorPosition(lift: lift, floor: floor)
     }
 }

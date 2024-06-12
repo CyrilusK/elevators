@@ -48,12 +48,13 @@ class ElevatorManager {
         let floorsToMove = abs(lifts[liftIndex].currentFloor - floor)
         let travelTime = floorsToMove * config.timeToElevate
         
+        self.delegate?.liftWillArrive(lift: lift, floor: floor)
         print("Lift \(lift.id) is moving from floor \(lifts[liftIndex].currentFloor) to floor \(floor)")
         DispatchQueue.global().asyncAfter(deadline: .now() + Double(travelTime)) {
             DispatchQueue.main.async {
                 self.lifts[liftIndex].currentFloor = floor
                 self.lifts[liftIndex].isMoving = false
-                self.delegate?.liftDidArrive(id: lift.id, floor: floor)
+                self.delegate?.liftDidArrive(lift: lift, floor: floor)
             }
         }
     }

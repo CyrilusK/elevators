@@ -17,9 +17,6 @@ class ElevatorViewController: UIViewController, ElevatorView {
     private var buildingConfig: BuildingConfig?
     private var presenter: ElevatorPresenter!
     
-    private let imageUp = UIImageView(image: UIImage(systemName: "arrow.up"))
-    let imageDown = UIImageView(image: UIImage(systemName: "arrow.down"))
-    
     var buttonForLifts: [Int: UIButton] = [:]
     var buttonPressed: [UIButton: Bool] = [:]
     var elevators: [Int: [UILabel]] = [:]
@@ -40,12 +37,6 @@ class ElevatorViewController: UIViewController, ElevatorView {
             callButton.isEnabled = false
         }
         self.animateElevator(lift: lift, toFloor: floor)
-        if (lift.currentFloor - floor < 0) {
-            imageUp.tintColor = .green
-        }
-        else {
-            imageDown.tintColor = .green
-        }
         print(#function)
     }
     
@@ -76,26 +67,6 @@ class ElevatorViewController: UIViewController, ElevatorView {
         mainStack.alignment = .fill
         mainStack.distribution = .fillEqually
         mainStack.spacing = 10
-        
-        imageUp.tintColor = .blue
-        imageUp.contentMode = .scaleAspectFit
-        view.addSubview(imageUp)
-        
-        imageDown.tintColor = .blue
-        imageDown.contentMode = .scaleAspectFit
-        view.addSubview(imageDown)
-        
-        imageUp.translatesAutoresizingMaskIntoConstraints = false
-        imageDown.translatesAutoresizingMaskIntoConstraints = false
-        
-        NSLayoutConstraint.activate([
-            imageUp.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-            imageDown.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
-            imageUp.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            imageDown.leadingAnchor.constraint(equalTo: imageUp.trailingAnchor),
-            imageUp.heightAnchor.constraint(equalToConstant: 50),
-            imageDown.heightAnchor.constraint(equalToConstant: 50)
-        ])
         
         for floor in (1...buildingConfig.houseLevels).reversed() {
             let floorsStack = UIStackView()
@@ -136,7 +107,7 @@ class ElevatorViewController: UIViewController, ElevatorView {
         mainStack.translatesAutoresizingMaskIntoConstraints = false
 
         NSLayoutConstraint.activate([
-            mainStack.topAnchor.constraint(equalTo: imageUp.bottomAnchor, constant: 10),
+            mainStack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
             mainStack.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 10),
             mainStack.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -10),
             mainStack.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -10)
@@ -183,10 +154,6 @@ class ElevatorViewController: UIViewController, ElevatorView {
                     }
                 })
             }
-            if (!elevator.isMoving) {
-                imageUp.tintColor = .blue
-                imageDown.tintColor = .blue
-            }
         }
         print(#function)
     }
@@ -202,7 +169,7 @@ class ElevatorViewController: UIViewController, ElevatorView {
             let temporaryElevatorLabel = UILabel(frame: elevatorLabel.frame)
             
             temporaryElevatorLabel.frame.origin.x += 10
-            temporaryElevatorLabel.frame.origin.y = mainStack.bounds.height + view.safeAreaInsets.top + imageUp.frame.height + 32 - CGFloat(fromFloor) * (floorHeight)
+            temporaryElevatorLabel.frame.origin.y = mainStack.bounds.height + view.safeAreaInsets.top + 20 - CGFloat(fromFloor) * (floorHeight)
             print(deltaY)
             temporaryElevatorLabel.backgroundColor = UIColor.gray.withAlphaComponent(0.5)
             view.addSubview(temporaryElevatorLabel)
